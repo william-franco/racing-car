@@ -4,3 +4,41 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+# As features são listadas à mão em vez de usar as padrão para deixar de fora
+# o `bevy_gilrs` (suporte a gamepad), que exige a libudev instalada no sistema
+# e está fora do escopo — o MVP é só teclado.
+bevy = { version = "0.19.0", default-features = false, features = [
+    "default_app",
+    "std",
+    "bevy_winit",
+    "bevy_clipboard",
+    "default_font",
+    "multi_threaded",
+    "x11",
+    "wayland",
+    "custom_cursor",
+    "sysinfo_plugin",
+    "3d_bevy_render",
+    "ui_api",
+    "ui_bevy_render",
+    "bevy_ui_widgets",
+    "scene",
+    "picking",
+    "bevy_audio",
+    "vorbis",
+    "bevy_dev_tools",
+] }
+avian3d = "0.7.0"
+rand = "0.10"
+serde = { version = "1.0", features = ["derive"] }
+ron = "0.12"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+lto = true
+codegen-units = 1
