@@ -43,6 +43,45 @@ impl DisplayQuality {
     }
 }
 
+/// Exibição do contador de FPS.
+#[derive(Resource, Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
+pub struct ShowFps(pub bool);
+
+impl Default for ShowFps {
+    fn default() -> Self {
+        Self(true)
+    }
+}
+
+/// Sensibilidade da direção em cinco passos, do mais suave ao mais direto.
+#[derive(Resource, Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
+pub struct SteerSensitivity(pub u32);
+
+impl SteerSensitivity {
+    pub const MAX: u32 = 4;
+
+    /// Multiplicador aplicado ao comando de direção, de 0.6x a 1.4x.
+    pub fn multiplier(self) -> f32 {
+        0.6 + self.0.min(Self::MAX) as f32 * 0.2
+    }
+
+    pub fn label(self) -> &'static str {
+        match self.0.min(Self::MAX) {
+            0 => "Mínima",
+            1 => "Baixa",
+            2 => "Padrão",
+            3 => "Alta",
+            _ => "Máxima",
+        }
+    }
+}
+
+impl Default for SteerSensitivity {
+    fn default() -> Self {
+        Self(2)
+    }
+}
+
 /// Volume mestre em passos de 0 a 9, como no menu.
 #[derive(Resource, Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct Volume(pub u32);
@@ -89,12 +128,23 @@ pub struct Records {
     pub races_finished: u32,
 }
 
+/// Perfis gravados por versões anteriores não têm os campos mais novos, então
+/// cada um cai no padrão em vez de invalidar o arquivo inteiro.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct SaveFile {
+    #[serde(default)]
     quality: DisplayQuality,
+    #[serde(default)]
+    show_fps: ShowFps,
+    #[serde(default)]
+    steer: SteerSensitivity,
+    #[serde(default)]
     volume: Volume,
+    #[serde(default)]
     laps: LapCount,
+    #[serde(default)]
     opponents: OpponentCount,
+    #[serde(default)]
     records: Records,
 }
 
@@ -149,6 +199,8 @@ impl Plugin for SettingsPlugin {
     fn build(&self, app: &mut App) {
         let save = load();
         app.insert_resource(save.quality)
+            .insert_resource(save.show_fps)
+            .insert_resource(save.steer)
             .insert_resource(save.volume)
             .insert_resource(save.laps)
             .insert_resource(save.opponents)
@@ -159,6 +211,8 @@ impl Plugin for SettingsPlugin {
 
 fn settings_changed(
     quality: Res<DisplayQuality>,
+    show_fps: Res<ShowFps>,
+    steer: Res<SteerSensitivity>,
     volume: Res<Volume>,
     laps: Res<LapCount>,
     opponents: Res<OpponentCount>,
@@ -166,11 +220,15 @@ fn settings_changed(
 ) -> bool {
     // `is_added` filtra o primeiro quadro, em que tudo acabou de ser inserido.
     let touched = quality.is_changed()
+        || show_fps.is_changed()
+        || steer.is_changed()
         || volume.is_changed()
         || laps.is_changed()
         || opponents.is_changed()
         || records.is_changed();
     let fresh = quality.is_added()
+        && show_fps.is_added()
+        && steer.is_added()
         && volume.is_added()
         && laps.is_added()
         && opponents.is_added()
@@ -180,6 +238,8 @@ fn settings_changed(
 
 fn persist(
     quality: Res<DisplayQuality>,
+    show_fps: Res<ShowFps>,
+    steer: Res<SteerSensitivity>,
     volume: Res<Volume>,
     laps: Res<LapCount>,
     opponents: Res<OpponentCount>,
@@ -187,6 +247,8 @@ fn persist(
 ) {
     store(&SaveFile {
         quality: *quality,
+        show_fps: *show_fps,
+        steer: *steer,
         volume: *volume,
         laps: *laps,
         opponents: *opponents,

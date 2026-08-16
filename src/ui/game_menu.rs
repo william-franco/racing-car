@@ -9,7 +9,9 @@ use bevy::ecs::component::Mutable;
 use bevy::ecs::spawn::SpawnWith;
 use bevy::prelude::*;
 
-use crate::core::settings::{DisplayQuality, LapCount, OpponentCount, Records, Volume};
+use crate::core::settings::{
+    DisplayQuality, LapCount, OpponentCount, Records, ShowFps, SteerSensitivity, Volume,
+};
 use crate::core::state::{GameState, MenuCamera};
 use crate::race::records::format_lap_time;
 
@@ -23,7 +25,9 @@ pub enum MenuState {
     SettingsDisplay,
     SettingsAudio,
     SettingsRace,
+    SettingsSteering,
     Controls,
+    Credits,
     /// Nenhuma tela de menu no ar (durante a corrida).
     #[default]
     Disabled,
@@ -44,7 +48,9 @@ enum MenuAction {
     Display,
     Audio,
     RaceRules,
+    Steering,
     Controls,
+    Credits,
     BackToMain,
     BackToSettings,
     Quit,
@@ -63,17 +69,22 @@ impl Plugin for GameMenuPlugin {
             .add_systems(OnEnter(MenuState::SettingsDisplay), display_menu)
             .add_systems(OnEnter(MenuState::SettingsAudio), audio_menu)
             .add_systems(OnEnter(MenuState::SettingsRace), race_menu)
+            .add_systems(OnEnter(MenuState::SettingsSteering), steering_menu)
             .add_systems(OnEnter(MenuState::Controls), controls_menu)
+            .add_systems(OnEnter(MenuState::Credits), credits_menu)
             .add_systems(Update, splash_countdown.run_if(in_state(GameState::Splash)))
             .add_systems(
                 Update,
                 (
                     button_feedback,
                     menu_action,
-                    setting_button::<DisplayQuality>.run_if(in_state(MenuState::SettingsDisplay)),
+                    (setting_button::<DisplayQuality>, setting_button::<ShowFps>)
+                        .run_if(in_state(MenuState::SettingsDisplay)),
                     setting_button::<Volume>.run_if(in_state(MenuState::SettingsAudio)),
                     (setting_button::<LapCount>, setting_button::<OpponentCount>)
                         .run_if(in_state(MenuState::SettingsRace)),
+                    setting_button::<SteerSensitivity>
+                        .run_if(in_state(MenuState::SettingsSteering)),
                 )
                     .run_if(in_state(GameState::Menu)),
             );
@@ -171,7 +182,9 @@ fn menu_action(
             MenuAction::Display => menu.set(MenuState::SettingsDisplay),
             MenuAction::Audio => menu.set(MenuState::SettingsAudio),
             MenuAction::RaceRules => menu.set(MenuState::SettingsRace),
+            MenuAction::Steering => menu.set(MenuState::SettingsSteering),
             MenuAction::Controls => menu.set(MenuState::Controls),
+            MenuAction::Credits => menu.set(MenuState::Credits),
             MenuAction::BackToMain => menu.set(MenuState::Main),
             MenuAction::BackToSettings => menu.set(MenuState::Settings),
             MenuAction::Quit => {
@@ -257,6 +270,7 @@ fn main_menu(mut commands: Commands, assets: Res<AssetServer>, records: Res<Reco
                     Some(assets.load("textures/ui/settings.png"))
                 ),
                 action_button("Controles", MenuAction::Controls, None),
+                action_button("Créditos", MenuAction::Credits, None),
                 action_button(
                     "Sair",
                     MenuAction::Quit,
@@ -281,6 +295,7 @@ fn settings_menu(mut commands: Commands) {
                 action_button("Vídeo", MenuAction::Display, None),
                 action_button("Áudio", MenuAction::Audio, None),
                 action_button("Corrida", MenuAction::RaceRules, None),
+                action_button("Direção", MenuAction::Steering, None),
                 action_button("Voltar", MenuAction::BackToMain, None),
             ]
         )],
@@ -306,7 +321,8 @@ where
                 Text::new(label),
                 theme::text(26.0, theme::TEXT_DIM),
                 Node {
-                    width: px(190),
+                    // Larga o bastante para o maior rótulo caber numa linha só.
+                    width: px(230),
                     ..default()
                 },
             ));
@@ -328,11 +344,15 @@ where
     )
 }
 
-fn display_menu(mut commands: Commands, quality: Res<DisplayQuality>) {
+fn display_menu(mut commands: Commands, quality: Res<DisplayQuality>, show_fps: Res<ShowFps>) {
     let options = [
         (DisplayQuality::Low, "Baixa".to_string()),
         (DisplayQuality::Medium, "Média".to_string()),
         (DisplayQuality::High, "Alta".to_string()),
+    ];
+    let fps_options = [
+        (ShowFps(true), "Ligado".to_string()),
+        (ShowFps(false), "Desligado".to_string()),
     ];
 
     commands.spawn((
@@ -345,10 +365,12 @@ fn display_menu(mut commands: Commands, quality: Res<DisplayQuality>) {
                 (Text::new("Vídeo"), theme::subheading()),
                 theme::checkered_strip(10),
                 option_row("Qualidade", *quality, options, 130.0),
+                option_row("Contador de FPS", *show_fps, fps_options, 130.0),
                 (
                     Text::new(
                         "A qualidade controla sombras, densidade do cenário e\n\
-                         a intensidade do motion blur."
+                         a intensidade do motion blur. O contador também liga e\n\
+                         desliga com F3."
                     ),
                     theme::caption(),
                 ),
@@ -401,6 +423,77 @@ fn race_menu(mut commands: Commands, laps: Res<LapCount>, opponents: Res<Opponen
                 option_row("Voltas", *laps, lap_options, 66.0),
                 option_row("Adversários", *opponents, opponent_options, 66.0),
                 action_button("Voltar", MenuAction::BackToSettings, None),
+            ]
+        )],
+    ));
+}
+
+fn steering_menu(mut commands: Commands, sensitivity: Res<SteerSensitivity>) {
+    let options: Vec<(SteerSensitivity, String)> = (0..=SteerSensitivity::MAX)
+        .map(|step| {
+            let value = SteerSensitivity(step);
+            (value, value.label().to_string())
+        })
+        .collect();
+
+    commands.spawn((
+        DespawnOnExit(MenuState::SettingsSteering),
+        theme::screen(),
+        BackgroundColor(theme::BACKDROP),
+        children![(
+            theme::panel(),
+            children![
+                (Text::new("Direção"), theme::subheading()),
+                theme::checkered_strip(10),
+                option_row("Sensibilidade", *sensitivity, options, 140.0),
+                (
+                    Text::new(
+                        "Define o quanto o volante gira ao segurar A/D e a rapidez\n\
+                         da resposta. Valores baixos ajudam em alta velocidade."
+                    ),
+                    theme::caption(),
+                ),
+                action_button("Voltar", MenuAction::BackToSettings, None),
+            ]
+        )],
+    ));
+}
+
+fn credits_menu(mut commands: Commands) {
+    commands.spawn((
+        DespawnOnExit(MenuState::Credits),
+        theme::screen(),
+        BackgroundColor(theme::BACKDROP),
+        children![(
+            theme::panel(),
+            children![
+                (Text::new("Créditos"), theme::subheading()),
+                theme::checkered_strip(10),
+                (
+                    Text::new("Racing Car — protótipo de corrida em Rust"),
+                    theme::text(26.0, theme::TEXT),
+                ),
+                (
+                    Text::new("Desenvolvido por William Franco"),
+                    theme::text(24.0, theme::TEXT_DIM),
+                ),
+                (
+                    Text::new("github.com/william-franco/racing-car"),
+                    theme::text(26.0, theme::ACCENT),
+                    Node {
+                        margin: UiRect::vertical(px(14)),
+                        ..default()
+                    },
+                ),
+                (
+                    Text::new(
+                        "Motor Bevy 0.19 e física Avian3D 0.7.\n\
+                         Tipografia Fira Sans, da Mozilla, sob a SIL Open Font\n\
+                         License 1.1 (assets/fonts/OFL.txt)."
+                    ),
+                    theme::caption(),
+                ),
+                action_button("Voltar", MenuAction::BackToMain, None),
             ]
         )],
     ));

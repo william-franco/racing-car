@@ -24,6 +24,19 @@ const TRACK_WIDTH: f32 = 0.86;
 /// Altura do ponto de fixação da suspensão, relativa ao centro do chassi.
 const AXLE_HEIGHT: f32 = 0.05;
 
+/// O colisor do chassi é mais baixo, mais curto e erguido em relação à
+/// carroceria desenhada.
+///
+/// Com a caixa colada na carroceria sobrava pouco mais de 30 cm até o asfalto,
+/// e a 180 km/h a rolagem em curva somada à compressão da suspensão fechava
+/// essa folga: o corpo encostava na malha da pista e o solver devolvia
+/// impulsos de centenas de kN, que é a "parede invisível" que parava o carro
+/// no meio da reta. Quem resolve o contato com o chão são os raycasts das
+/// rodas; esta caixa só existe para bater em guard-rail e em outro carro.
+const COLLIDER_HEIGHT: f32 = CAR_HEIGHT * 0.8;
+const COLLIDER_LENGTH: f32 = CAR_LENGTH * 0.96;
+const COLLIDER_LIFT: f32 = 0.16;
+
 /// Paleta de um carro.
 #[derive(Clone, Copy, Debug)]
 pub struct CarPaint {
@@ -225,10 +238,14 @@ pub fn spawn_car(
         // Corpo rígido: o colisor é um cuboide simples, já que o contato com o
         // chão é resolvido pelos raycasts das rodas.
         RigidBody::Dynamic,
-        Collider::cuboid(CAR_WIDTH, CAR_HEIGHT, CAR_LENGTH),
+        Collider::compound(vec![(
+            Vec3::Y * COLLIDER_LIFT,
+            Quat::IDENTITY,
+            Collider::cuboid(CAR_WIDTH, COLLIDER_HEIGHT, COLLIDER_LENGTH),
+        )]),
         // A densidade é derivada da massa desejada para que massa e inércia
         // angular continuem coerentes entre si.
-        ColliderDensity(config.mass / (CAR_WIDTH * CAR_HEIGHT * CAR_LENGTH)),
+        ColliderDensity(config.mass / (CAR_WIDTH * COLLIDER_HEIGHT * COLLIDER_LENGTH)),
         // Centro de massa baixo e levemente atrás: estável e com tendência a
         // girar a traseira quando o piloto exagera.
         CenterOfMass::new(0.0, -0.28, 0.12),

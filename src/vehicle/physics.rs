@@ -34,6 +34,12 @@ pub struct CarConfig {
     pub max_steer: f32,
     /// Quanto o esterçamento fecha em velocidade alta, de 0 a 1.
     pub steer_falloff: f32,
+    /// Velocidade em que o esterçamento chega ao fechamento total, em m/s.
+    ///
+    /// Separada da `top_speed` porque a corrida acontece bem abaixo dela: medir
+    /// o fechamento contra o teto de velocidade deixava a direção solta demais
+    /// justamente na faixa em que o carro anda.
+    pub steer_reference_speed: f32,
     /// Força de tração total com o acelerador no fundo, em N.
     pub engine_force: f32,
     pub brake_force: f32,
@@ -65,8 +71,9 @@ impl Default for CarConfig {
             damper_strength: 4_400.0,
             anti_roll: 12_000.0,
             wheel_radius: 0.36,
-            max_steer: 0.62,
-            steer_falloff: 0.62,
+            max_steer: 0.42,
+            steer_falloff: 0.85,
+            steer_reference_speed: 45.0,
             engine_force: 15_500.0,
             brake_force: 20_000.0,
             top_speed: 78.0,
@@ -271,8 +278,9 @@ fn vehicle_dynamics(
         engine.throttle = engine.throttle.lerp(input.throttle, (dt * 9.0).min(1.0));
         engine.brake = engine.brake.lerp(input.brake, (dt * 14.0).min(1.0));
 
-        let steer_limit =
-            1.0 - config.steer_falloff * (forward_speed.abs() / config.top_speed).clamp(0.0, 1.0);
+        let steer_limit = 1.0
+            - config.steer_falloff
+                * (forward_speed.abs() / config.steer_reference_speed).clamp(0.0, 1.0);
         let steer_target = input.steer.clamp(-1.0, 1.0) * config.max_steer * steer_limit;
         engine.steer = engine.steer.lerp(steer_target, (dt * 8.0).min(1.0));
 
@@ -406,7 +414,13 @@ fn vehicle_dynamics(
 
             let grip = (base_grip * slot.surface_grip * load).clamp(0.0, 0.98);
             let correction = -lateral * grip;
-            forces.apply_linear_impulse_at_point(wheel_right * correction * quarter_mass, contact);
+            // O impulso sobe em direção à altura do centro de massa antes de
+            // ser aplicado. No ponto de contato o braço de alavanca é o carro
+            // inteiro e uma curva forte capota; subindo, sobra transferência de
+            // peso sem o tombo.
+            let grip_point = contact.lerp(contact.with_y(com.y), 0.6);
+            forces
+                .apply_linear_impulse_at_point(wheel_right * correction * quarter_mass, grip_point);
 
             if wheel.powered && !input.handbrake {
                 forces

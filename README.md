@@ -43,6 +43,11 @@ cargo fmt          # formatação
 A caixa é automática: a marcha sobe e desce sozinha conforme o RPM, e a ré entra
 quando você insiste no freio com o carro parado.
 
+O contador de FPS já vem ligado e pode ser desligado em **Configurações >
+Vídeo**. Se o carro estiver girando demais nas curvas, **Configurações >
+Direção** tem cinco níveis de sensibilidade: eles mudam tanto o quanto o volante
+chega a girar quanto a rapidez com que ele responde à tecla.
+
 ### Ajustes e depuração
 
 | Tecla       | Ação                                            |
@@ -50,7 +55,7 @@ quando você insiste no freio com o carro parado.
 | `1` / `2`   | Diminuir / aumentar o ângulo de obturador do motion blur |
 | `3` / `4`   | Diminuir / aumentar as amostras do motion blur  |
 | `F2`        | Alternar a cor do overlay de FPS                |
-| `F3`        | Ligar / desligar o overlay de FPS               |
+| `F3`        | Ligar / desligar o contador de FPS (o mesmo ajuste de Configurações > Vídeo) |
 | `F4`        | Ligar / desligar o gráfico de frame time        |
 | `F5` / `F6` | Diminuir / aumentar a fonte do overlay          |
 | `F7`        | Gizmos de colisores do Avian                    |
@@ -88,7 +93,8 @@ quando você insiste no freio com o carro parado.
   transmissão de TV. Todos os modos usam `MotionBlur` por objeto, ajustável em
   tempo real.
 - **Interface.** Splash, menu principal com tema de corrida, telas de ajustes
-  (qualidade, volume, voltas, adversários), HUD com velocímetro, marcha, barra de
+  (qualidade, contador de FPS, volume, voltas, adversários, sensibilidade da
+  direção), tela de créditos, HUD com velocímetro, marcha, barra de
   RPM, voltas, tempos e posição, além de um minimapa que rasteriza o traçado numa
   textura e desenha os carros por cima.
 - **Áudio.** Música no menu e na corrida, mais um motor sintetizado via
@@ -156,6 +162,15 @@ git add . && git commit -m ":test_tube: Added test functionality xyz." && git pu
 git add . && git commit -m ":construction_worker: Building in progress." && git push
 git add . && git commit -m ":construction_worker: Added CI build system." && git push
 ```
+
+## Créditos
+
+Desenvolvido por William Franco — <https://github.com/william-franco/racing-car>.
+
+Motor [Bevy 0.19](https://bevy.org) e física [Avian3D 0.7](https://github.com/Jondolf/avian).
+A tipografia é a Fira Sans, da Mozilla, distribuída sob a SIL Open Font License
+1.1 (`assets/fonts/OFL.txt`). O mesmo conteúdo está na tela **Créditos** do menu
+principal.
 
 ## License
 
